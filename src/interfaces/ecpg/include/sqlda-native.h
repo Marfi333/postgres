@@ -13,7 +13,7 @@
  * This should be at least as much as NAMEDATALEN of the database the
  * applications run against.
  */
-#define NAMEDATALEN 64
+#define NAMEDATALEN 128
 
 struct sqlname
 {
