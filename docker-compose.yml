@@ -1,4 +1,4 @@
-name: retailnext-postgres-18
+name: retailnext-postgres-18-dev
 
 services:
   postgres:
