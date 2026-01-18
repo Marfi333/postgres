@@ -677,6 +677,23 @@ select * from (
 (1 row)
 
 --
+-- Test cases for interactions between PARAM_EXEC, subplans and array
+-- subscripts
+--
+-- check that array subscription doesn't conflict with PARAM_EXEC (see #19370)
+SELECT (array[1,2])[(SELECT g.i)] FROM generate_series(1, 1) g(i);
+ array 
+-------
+     1
+(1 row)
+
+SELECT (array[1,2])[(SELECT g.i):(SELECT g.i + 1)] FROM generate_series(1, 1) g(i);
+ array 
+-------
+ {1,2}
+(1 row)
+
+--
 -- Test that an IN implemented using a UniquePath does unique-ification
 -- with the right semantics, as per bug #4113.  (Unfortunately we have
 -- no simple way to ensure that this test case actually chooses that type
@@ -771,6 +788,25 @@ select (select (a.*)::text) from view_a a;
   a   
 ------
  (42)
+(1 row)
+
+--
+-- Test case for bug #19037: no relation entry for relid N
+--
+explain (costs off)
+select (1 = any(array_agg(f1))) = any (select false) from int4_tbl;
+         QUERY PLAN         
+----------------------------
+ Aggregate
+   ->  Seq Scan on int4_tbl
+   SubPlan 1
+     ->  Result
+(4 rows)
+
+select (1 = any(array_agg(f1))) = any (select false) from int4_tbl;
+ ?column? 
+----------
+ t
 (1 row)
 
 --
@@ -1763,6 +1799,34 @@ fetch backward all in c1;
 (2 rows)
 
 commit;
+--
+-- Check that JsonConstructorExpr is treated as non-strict, and thus can be
+-- wrapped in a PlaceHolderVar
+--
+begin;
+create temp table json_tab (a int);
+insert into json_tab values (1);
+explain (verbose, costs off)
+select * from json_tab t1 left join (select json_array(1, a) from json_tab t2) s on false;
+                    QUERY PLAN                     
+---------------------------------------------------
+ Nested Loop Left Join
+   Output: t1.a, (JSON_ARRAY(1, a RETURNING json))
+   Join Filter: false
+   ->  Seq Scan on pg_temp.json_tab t1
+         Output: t1.a
+   ->  Result
+         Output: JSON_ARRAY(1, a RETURNING json)
+         One-Time Filter: false
+(8 rows)
+
+select * from json_tab t1 left join (select json_array(1, a) from json_tab t2) s on false;
+ a | json_array 
+---+------------
+ 1 | 
+(1 row)
+
+rollback;
 --
 -- Verify that we correctly flatten cases involving a subquery output
 -- expression that doesn't need to be wrapped in a PlaceHolderVar
