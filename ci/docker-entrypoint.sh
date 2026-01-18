@@ -42,4 +42,13 @@ EOSQL
 fi
 
 # Start PostgreSQL
+if [ -n "${POSTGRES_PASSWORD:-}" ]; then
+    cat > /var/lib/postgresql/.pgpass <<EOF
+localhost:5432:*:${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}
+127.0.0.1:5432:*:${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}
+::1:5432:*:${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}
+EOF
+    chmod 600 /var/lib/postgresql/.pgpass
+fi
+
 exec postgres -D "$PGDATA"
